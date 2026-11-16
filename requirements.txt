@@ -1,0 +1,17 @@
+# Core data stack (phase1.ipynb, DIC_data.ipynb)
+pandas>=3.0
+numpy>=2.2
+scikit-learn>=1.6
+matplotlib>=3.10
+seaborn>=0.13.2
+
+# Jupyter kernel so the .venv shows up in VS Code / Jupyter
+ipykernel>=7.0
+
+# Phase 2 models and feature selection
+mlxtend>=0.25
+xgboost>=3.0
+shap>=0.53
+statsmodels
+torch>=2.0
+imbalanced-learn>=0.12

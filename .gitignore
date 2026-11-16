@@ -216,3 +216,55 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# CSE 487 project-specific exclusions
+# macOS metadata
+.DS_Store
+._*
+
+# Local Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter autosaved checkpoints (keep the actual notebooks)
+.ipynb_checkpoints/
+
+# LaTeX intermediate files (keep .tex, figures, and report PDFs)
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+
+# Duplicate compiled reports; submitted report PDFs remain tracked
+/phase_1/build/
+/phase_2/build/
+
+# Generated submission archives; their unpacked contents remain tracked
+/phase_1/*.zip
+/phase_2/*.zip
+/phase_3/*.zip
+/*_phase3.zip
+
+# Local credentials and environment settings
+.env
+.env.*
+!.env.example
+!.env.template
+.aws/
+.databrickscfg
+
+# Keep datasets, split assignments, source code, notebooks, figures,
+# assignment PDFs, and unpacked submission reports in version control.
+# Earlier draft notebooks are also kept as useful project history.
