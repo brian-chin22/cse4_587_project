@@ -234,7 +234,7 @@ __pycache__/
 # Jupyter autosaved checkpoints (keep the actual notebooks)
 .ipynb_checkpoints/
 
-# LaTeX intermediate files (keep .tex, figures, and report PDFs)
+# LaTeX source and intermediate files (keep figures and report PDFs)
 *.aux
 *.log
 *.fls
@@ -268,3 +268,6 @@ __pycache__/
 # Keep datasets, split assignments, source code, notebooks, figures,
 # assignment PDFs, and unpacked submission reports in version control.
 # Earlier draft notebooks are also kept as useful project history.
+
+# LaTeX sources are maintained locally only
+*.tex
