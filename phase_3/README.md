@@ -6,8 +6,8 @@ Predicting whether a driver files a car insurance claim (`OUTCOME = 1`), rebuilt
 
 | Member | Tasks | Files |
 |---|---|---|
-| Elijah | Bronze and Silver layers, one MLlib model | `01_bronze_layer`, `02_silver_layer`, `04c_mllib_<model>` |
-| Pranjal | Gold layer, one MLlib model | `03_gold_layer`, `04b_mllib_<model>` |
+| Elijah | Bronze and Silver layers, one MLlib model (decision tree) | `01_bronze_layer`, `02_silver_layer`, `04c_mllib_Decision_Tree` |
+| Pranjal | Gold layer, one MLlib model (random forest) | `03_gold_layer`, `04b_mllib_Random_Forest` |
 | Brian | Delta tables, one MLlib model (logistic regression) | `00_setup`, `03b_delta_tables`, `04a_mllib_logistic_regression`, `src/make_split.py` |
 
 ## File structure
@@ -15,34 +15,33 @@ Predicting whether a driver files a car insurance claim (`OUTCOME = 1`), rebuilt
 ```
 phase_3/
 ├── README.md
-├── report.pdf                              (team, added before submission)
+├── report.pdf                              All      project report
 ├── data/
 │   └── split_assignment.csv                Brian    ID → train / validation / test, from make_split.py
 ├── src/
 │   └── make_split.py                       Brian    reproduces the Phase 2 scikit-learn split
 └── notebooks/
     ├── 00_setup.ipynb                      Brian    shared names and helpers; run by every notebook
-    ├── 01_bronze_layer.ipynb               Elijah   skeleton
-    ├── 02_silver_layer.ipynb               Elijah   skeleton
-    ├── 03_gold_layer.ipynb                 Pranjal  skeleton
+    ├── 01_bronze_layer.ipynb               Elijah   raw CSV → claims_bronze
+    ├── 02_silver_layer.ipynb               Elijah   claims_bronze → claims_silver
+    ├── 03_gold_layer.ipynb                 Pranjal  claims_silver → claims_gold_features, claims_gold_summary
     ├── 03b_delta_tables.ipynb              Brian    split table + read-back validation of all tables
-    ├── 04a_mllib_logistic_regression.ipynb Brian
-    ├── 04b_mllib_<model>.ipynb             Pranjal  copy of 04x_mllib_model_template
-    ├── 04c_mllib_<model>.ipynb             Elijah   copy of 04x_mllib_model_template
-    └── 04x_mllib_model_template.ipynb      template; delete before submission
+    ├── 04a_mllib_logistic_regression.ipynb Brian    logistic regression
+    ├── 04b_mllib_Random_Forest.ipynb       Pranjal  random forest
+    └── 04c_mllib_Decision_Tree.ipynb       Elijah   decision tree
 ```
 
 **Differences from the suggested structure in the assignment**, which allows another layout if it is explained:
 
 - `00_setup` holds the table names and the Delta write and validation helpers, so the three of us write to the same tables in the same way. Every notebook runs it in its first code cell with `%run ./00_setup`.
 - `03b_delta_tables` is the Task 6 evidence: it reads every table back from the catalog and verifies it.
-- `04_mllib_models` is split into one notebook per model (`04a`, `04b`, `04c`) so each member can work and rerun independently.
+- `04_mllib_models` is split into one notebook per model (`04a` logistic regression, `04b` random forest, `04c` decision tree) so each member can work and rerun independently.
 
 ## How we work together
 
 1. **Edit only your own notebooks.** Everyone works in the shared `phase_3` folder of the Databricks workspace.
 2. **Use the names from `00_setup`** (`BRONZE_TABLE`, `SILVER_TABLE`, `GOLD_FEATURES_TABLE`, `CLAIMS_CSV`, ...) instead of typing table names or paths. If something in `00_setup` needs to change, tell Brian, because it affects every notebook.
-3. **End each layer notebook with `write_delta(...)` and `validate_tables(...)`.** The skeletons already contain those cells. `validate_tables` reads the table back and stops the notebook if it does not meet the contract below.
+3. **End each layer notebook with `write_delta(...)` and `validate_tables(...)`.** `validate_tables` reads the table back and stops the notebook if it does not meet the contract below.
 4. **Work order.** Each stage reads the previous stage's table: Elijah (Bronze, Silver) → Pranjal (Gold) → the three model notebooks. Tell the next person when your table is written.
 5. **Models use the shared split and metrics.** `load_model_splits()` returns the Phase 2 train, validation and test drivers, and `evaluate_classifier(...)` computes the metrics the same way for all three models.
 6. Before submission, each owner runs their notebook from top to bottom and exports it as `.ipynb`.
@@ -63,13 +62,39 @@ What each notebook must produce for the next one to work. `validate_tables` chec
 
 **Why rows should not be removed without reporting it.** Phase 2 kept all 10,000 drivers. Every removed row changes the test set, and `03b_delta_tables` reports how many Phase 2 drivers are missing from each split.
 
+## Models
+
+All three are Phase 2 models rebuilt with Spark MLlib (`spark.ml`). Each is one Spark ML `Pipeline` (preprocessing and classifier) fitted on the 6,400 Phase 2 training drivers, tuned on the 1,600 validation drivers and scored once on the 2,000 test drivers. Every notebook reports accuracy, precision, recall, F1 and ROC-AUC for the claim class, plus the confusion matrix, through the shared `evaluate_classifier`, and compares them with the Phase 2 report.
+
+| Notebook | Model | Preprocessing (fitted on train) | Tuned on validation | Saved to |
+|---|---|---|---|---|
+| `04a_mllib_logistic_regression` | `LogisticRegression` (L2) | `StringIndexer`, `OneHotEncoder`, median `Imputer`, `MinMaxScaler` | Regularization: 7 values of `C`, by accuracy | `/Volumes/workspace/car_insurance/models/logistic_regression` |
+| `04b_mllib_Random_Forest` | `RandomForestClassifier` (300 trees) | `StringIndexer`, median `Imputer` | Maximum depth 4, 6, 8, 10, by ROC-AUC | `/Volumes/workspace/car_insurance/models/random_forest` |
+| `04c_mllib_Decision_Tree` | `DecisionTreeClassifier` | `StringIndexer`, median `Imputer` | Maximum depth 3, 5, 8, 10 × minimum rows per node 1, 10, 25, by ROC-AUC | `/Volumes/workspace/car_insurance/models/decision_tree` |
+
+Each notebook saves the fitted pipeline, loads it back and checks that the reloaded copy gives the same test predictions. To use a saved model elsewhere:
+
+```python
+from pyspark.ml import PipelineModel
+model = PipelineModel.load("/Volumes/workspace/car_insurance/models/random_forest")
+predictions = model.transform(drivers)   # same columns as claims_gold_features
+```
+
 ## Workspace and table locations
 
 - **Platform:** Databricks Free Edition, serverless compute, Unity Catalog.
 - **Workspace folder:** `phase_3`
 - **Catalog / schema:** `workspace.car_insurance` (tables are `workspace.car_insurance.<table name>`)
 - **Source files (volume):** `/Volumes/workspace/car_insurance/raw/`
-- **Saved models (volume):** `/Volumes/workspace/car_insurance/models/<model name>/`
+- **Saved models (volume):** `/Volumes/workspace/car_insurance/models/` with one folder per model: `logistic_regression`, `random_forest`, `decision_tree`
+
+| Table | Full name | Rows |
+|---|---|---|
+| Bronze | `workspace.car_insurance.claims_bronze` | 10,000 |
+| Silver | `workspace.car_insurance.claims_silver` | 10,000 |
+| Gold features | `workspace.car_insurance.claims_gold_features` | 10,000 |
+| Gold summary | `workspace.car_insurance.claims_gold_summary` | One row per group (claim rate by segment) |
+| Split | `workspace.car_insurance.claims_model_split` | 10,000 |
 
 If the catalog is not named `workspace`, change `CATALOG` in `00_setup`; nothing else needs editing.
 
@@ -98,7 +123,7 @@ Run order, each with **Run all**:
 2. `02_silver_layer`
 3. `03_gold_layer`
 4. `03b_delta_tables`
-5. `04a_mllib_logistic_regression`, `04b_...`, `04c_...` (any order)
+5. `04a_mllib_logistic_regression`, `04b_mllib_Random_Forest`, `04c_mllib_Decision_Tree` (any order, after `03b_delta_tables`)
 
 `00_setup` is never run directly. Every notebook overwrites its own tables, so the pipeline can be rerun from the top at any time.
 
