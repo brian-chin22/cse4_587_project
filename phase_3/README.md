@@ -109,10 +109,20 @@ Run order, each with **Run all**:
 
 ## Team access
 
-Team members are added under **Settings → Identity and access → Users**, and the `phase_3` folder is shared with edit permission from its **Share** menu. If a member cannot see or write the tables, the workspace owner runs:
+Team members are added under **Settings → Identity and access → Users**, and the `phase_3` folder is shared with edit permission from its **Share** menu. The workspace owner then runs the grants below once per member, in the SQL editor:
 
 ```sql
-GRANT ALL PRIVILEGES ON SCHEMA workspace.car_insurance TO `member@buffalo.edu`;
+-- The schema and volumes must exist before they can be shared.
+CREATE SCHEMA IF NOT EXISTS workspace.car_insurance;
+CREATE VOLUME IF NOT EXISTS workspace.car_insurance.raw;
+CREATE VOLUME IF NOT EXISTS workspace.car_insurance.models;
+
+-- Open the catalog. 00_setup runs CREATE SCHEMA IF NOT EXISTS, which needs CREATE SCHEMA.
+GRANT USE CATALOG, CREATE SCHEMA ON CATALOG workspace TO `<member email>`;
+-- Read and write tables, upload source files to `raw`, save models to `models`.
+GRANT ALL PRIVILEGES ON SCHEMA workspace.car_insurance TO `<member email>`;
+-- Replace tables another member created (every notebook overwrites its own tables).
+GRANT MANAGE ON SCHEMA workspace.car_insurance TO `<member email>`;
 ```
 
 No passwords, tokens or other credentials are stored in this submission.
